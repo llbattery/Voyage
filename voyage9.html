@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Voyage 9 Files</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    #searchBox { margin-bottom: 20px; padding: 8px; width: 300px; }
+    .pagination, .numeric-pagination { margin: 15px 0; }
+    .pagination button, .numeric-pagination button {
+      margin: 2px;
+      padding: 6px 10px;
+      border: 1px solid #ccc;
+      background: #f9f9f9;
+      cursor: pointer;
+    }
+    .pagination button.active, .numeric-pagination button.active {
+      background: #007BFF;
+      color: white;
+    }
+    ul { list-style: none; padding: 0; }
+    li { margin: 4px 0; }
+  </style>
+</head>
+<body>
+  <h2>Voyage 9 Files</h2>
+  <input type="text" id="searchBox" placeholder="Search files...">
+  <div id="alphaPagination" class="pagination"></div>
+  <ul id="fileList"></ul>
+  <div id="numericPagination" class="numeric-pagination"></div>
+  <div id="counter">Loading files...</div>
+
+<script>
+const apiKey = "YOUR_API_KEY";  // replace with your Google API key
+const folderIds = ["1P3zlsA1wKI3CoBv6cFb4wxDBWpltKo0i"];  
+
+let allFiles = [];
+let filteredFiles = [];
+let currentLetter = null;
+let currentPage = 1;
+const pageSize = 20;
+
+async function fetchFilesFromFolder(folderId, pageToken = null) {
+  let url = `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents and trashed=false&key=${apiKey}&fields=nextPageToken,files(id,name,mimeType)&pageSize=1000`;
+  if (pageToken) url += `&pageToken=${pageToken}`;
+  const res = await fetch(url);
+  const data = await res.json();
+  let files = data.files || [];
+  if (data.nextPageToken) {
+    const moreFiles = await fetchFilesFromFolder(folderId, data.nextPageToken);
+    files = files.concat(moreFiles);
+  }
+  return files;
+}
+
+async function loadFiles() {
+  let files = [];
+  for (let id of folderIds) {
+    const f = await fetchFilesFromFolder(id);
+    files = files.concat(f);
+  }
+  allFiles = files;
+  filteredFiles = [...allFiles];
+  buildAlphaPagination();
+  displayFiles();
+}
+
+function buildAlphaPagination() {
+  const container = document.getElementById("alphaPagination");
+  container.innerHTML = "";
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").forEach(letter => {
+    const btn = document.createElement("button");
+    btn.textContent = letter;
+    btn.onclick = () => {
+      currentLetter = letter;
+      currentPage = 1;
+      filteredFiles = allFiles.filter(f => f.name.toUpperCase().startsWith(letter));
+      displayFiles();
+    };
+    container.appendChild(btn);
+  });
+  const allBtn = document.createElement("button");
+  allBtn.textContent = "All";
+  allBtn.onclick = () => {
+    currentLetter = null;
+    currentPage = 1;
+    filteredFiles = [...allFiles];
+    displayFiles();
+  };
+  container.appendChild(allBtn);
+}
+
+function buildNumericPagination(totalPages) {
+  const container = document.getElementById("numericPagination");
+  container.innerHTML = "";
+  for (let i = 1; i <= totalPages; i++) {
+    const btn = document.createElement("button");
+    btn.textContent = i;
+    if (i === currentPage) btn.classList.add("active");
+    btn.onclick = () => {
+      currentPage = i;
+      displayFiles();
+    };
+    container.appendChild(btn);
+  }
+}
+
+function displayFiles() {
+  const list = document.getElementById("fileList");
+  list.innerHTML = "";
+
+  if (filteredFiles.length === 0) {
+    list.innerHTML = "<li>No files found</li>";
+    document.getElementById("counter").innerText = "0 files";
+    document.getElementById("numericPagination").innerHTML = "";
+    return;
+  }
+
+  const totalPages = Math.ceil(filteredFiles.length / pageSize);
+  const start = (currentPage - 1) * pageSize;
+  const end = start + pageSize;
+  const filesToShow = filteredFiles.slice(start, end);
+
+  const fragment = document.createDocumentFragment();
+  filesToShow.forEach(file => {
+    const li = document.createElement("li");
+    li.innerHTML = `<a href="https://drive.google.com/uc?export=download&id=${file.id}">${file.name}</a>`;
+    fragment.appendChild(li);
+  });
+  list.appendChild(fragment);
+
+  document.getElementById("counter").innerText =
+    `Showing ${filesToShow.length} of ${filteredFiles.length} files`;
+  buildNumericPagination(totalPages);
+}
+
+document.getElementById("searchBox").addEventListener("input", e => {
+  const query = e.target.value.toLowerCase();
+  currentPage = 1;
+  filteredFiles = query === "" 
+    ? [...allFiles] 
+    : allFiles.filter(f => f.name.toLowerCase().includes(query));
+  displayFiles();
+});
+
+loadFiles();
+</script>
+</body>
+</html>
