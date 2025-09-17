@@ -57,13 +57,14 @@ async function loadFiles() {
   let files = [];
   for (let id of folderIds) {
     const f = await fetchFilesFromFolder(id);
-    files = files.concat(f);
+    files = files.concat(f);  // Append files from each folder
   }
-  allFiles = files;
-  filteredFiles = [...allFiles];
-  buildAlphaPagination();
-  displayFiles();
+  allFiles = files;  // Store all files in the global variable
+  filteredFiles = [...allFiles];  // Initially no filters, so display all files
+  buildAlphaPagination();  // Build pagination buttons
+  displayFiles();  // Show files on the page
 }
+
 
 function buildAlphaPagination() {
   const container = document.getElementById("alphaPagination");
